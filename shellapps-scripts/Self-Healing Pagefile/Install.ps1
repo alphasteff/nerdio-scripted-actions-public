@@ -1,7 +1,7 @@
 ﻿#name: Self-Healing Pagefile
 #description: Self-Healing Pagefile for v6 VM Skus
 #execution mode: Combined
-#tags: baseVISION AG
+#tags: beckmann.ch
 
 <# Notes:
 

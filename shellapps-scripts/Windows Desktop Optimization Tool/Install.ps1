@@ -1,7 +1,7 @@
 ﻿#name: Windows Desktop Optimization Tool
 #description: Applies Windows Desktop Optimization Tool configurations to optimize AVD/Windows 11 session hosts
 #execution mode: Combined
-#tags: baseVISION AG, Optimization, Windows 11
+#tags: beckmann.ch, Optimization, Windows 11
 
 <# Notes:
 
@@ -19,7 +19,7 @@ Configuration files should be placed in: .\Configurations\<profile-name>\
 $ErrorActionPreference = 'Stop'
 
 $configProfile = 'Default_W1125H2'
-$opt = 'WDOT, WindowsMediaPlayer, AppxPackages, ScheduledTasks, DefaultUserSettings, Autologgers, Services, LocalPolicy, NetworkOptimizations, AdvancedOptimizations' #All runs DiskCleanup, that removes also the logs
+$opt = 'WindowsMediaPlayer, AppxPackages, ScheduledTasks, DefaultUserSettings, Autologgers, Services, LocalPolicy, NetworkOptimizations' #All runs DiskCleanup, that removes also the logs
 $advOpt = ''
 $filesPath = '.\Configurations\*'
 
@@ -28,7 +28,7 @@ Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 
 # Validate required arguments
 if ([string]::IsNullOrWhiteSpace($configProfile)) {
-    $Context.Log("Missing required variable: WDOTConfigProfile. This must specify a configuration profile name (e.g., Windows11_24H2).")
+    $Context.Log("Missing required variable: WDOTConfigProfile. This must specify a configuration profile name (e.g., Default_W1125H2).")
     exit 1
 }
 
