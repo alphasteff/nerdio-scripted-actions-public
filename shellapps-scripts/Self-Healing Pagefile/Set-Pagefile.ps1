@@ -89,21 +89,21 @@ foreach ($svc in $AvdServices) {
             continue
         }
 
-        if ($service -and $service.Status -ne "Stopped") {
+        if ($service -and $service.Status -ne 'Stopped') {
             Stop-Service $service.Name -Force -ErrorAction Stop
             Write-Log "Stopped $svc and set startup to Manual"
         }
 
         switch ($service.StartType) {
-            "Disabled" {
+            'Disabled' {
                 Write-Log "Service $svc is disabled, skipping."
                 continue
             }
-            "Manual" {
+            'Manual' {
                 Write-Log "Service $svc is already set to Manual, skipping."
                 continue
             }
-            { $_ -in "Automatic", "AutomaticDelayedStart" } {
+            { $_ -in 'Automatic', 'AutomaticDelayedStart' } {
                 Write-Log "Service $svc is set to $($service.StartType), changing to Manual."
                 Set-Service $service.Name -StartupType Manual -ErrorAction Stop
                 Write-Log "Service $svc startup is set to Manual"
@@ -135,24 +135,23 @@ if ($RebootCount -ge $MaxRebootAttempts) {
 # CHECK CURRENT PAGEFILE STATE
 # =========================
 $Pagefile = Get-CimInstance Win32_PageFileSetting -ErrorAction SilentlyContinue
-$PagefileOnD = $Pagefile | Where-Object { $_.Name -like "D:*" }
-$PagefileOnC = $Pagefile | Where-Object { $_.Name -like "C:*" }
+$PagefileOnD = $Pagefile | Where-Object { $_.Name -like 'D:*' }
+$PagefileOnC = $Pagefile | Where-Object { $_.Name -like 'C:*' }
 
 Write-Log "Current pagefile state: D: $(if($PagefileOnD){'EXISTS'}else{'NONE'}) | C: $(if($PagefileOnC){'EXISTS'}else{'NONE'})"
 
 # =========================
 # QUICK CHECK: Everything already perfect?
 # =========================
-$dDriveExists = Test-Path "D:\" -ErrorAction SilentlyContinue
-#$cDriveExists = Test-Path "C:\" -ErrorAction SilentlyContinue
+$dDriveExists = Test-Path 'D:\' -ErrorAction SilentlyContinue
 
 # Check for temp disk availability
 $TempDiskAvailable = Get-Disk | Where-Object {
-    $_.OperationalStatus -eq "Online" -and
-    $_.BusType -ne "File" -and
+    $_.OperationalStatus -eq 'Online' -and
+    $_.BusType -ne 'File' -and
     (
-        $_.FriendlyName -eq "Microsoft NVMe Direct Disk v2" -or # V6 SKU
-        ($_.FriendlyName -eq "Msft Virtual Disk" -and $_.PartitionStyle -eq "MBR")  # V5 SKU
+        $_.FriendlyName -eq 'Microsoft NVMe Direct Disk v2' -or # V6 SKU
+        ($_.FriendlyName -eq 'Msft Virtual Disk' -and $_.PartitionStyle -eq 'MBR')  # V5 SKU
     )
 }
 
@@ -160,35 +159,35 @@ $everythingPerfect = $false
 
 # Scenario 1: D: drive available with pagefile configured
 if ($TempDiskAvailable -and $dDriveExists -and $PagefileOnD) {
-    Write-Log "D: drive with temp disk detected and pagefile is configured"
+    Write-Log 'D: drive with temp disk detected and pagefile is configured'
     $everythingPerfect = $true
 }
 # Scenario 2: No temp disk, C: drive pagefile is configured
 elseif (-not $TempDiskAvailable -and $PagefileOnC) {
-    Write-Log "No temp disk available, C: drive pagefile is configured - correct fallback state"
+    Write-Log 'No temp disk available, C: drive pagefile is configured - correct fallback state'
     $everythingPerfect = $true
 } else {
     # Log why configuration is needed
     if ($TempDiskAvailable -and -not $dDriveExists) {
-        Write-Log "Configuration needed: Temp disk available but D: drive not initialized"
+        Write-Log 'Configuration needed: Temp disk available but D: drive not initialized'
     } elseif ($TempDiskAvailable -and $dDriveExists -and -not $PagefileOnD) {
-        Write-Log "Configuration needed: D: drive exists but pagefile not configured"
+        Write-Log 'Configuration needed: D: drive exists but pagefile not configured'
     } elseif ($TempDiskAvailable -and -not $PagefileOnD) {
-        Write-Log "Configuration needed: Temp disk available but pagefile not on D:"
+        Write-Log 'Configuration needed: Temp disk available but pagefile not on D:'
     } elseif (-not $TempDiskAvailable -and -not $PagefileOnC) {
-        Write-Log "Configuration needed: No temp disk and pagefile not configured on C:"
+        Write-Log 'Configuration needed: No temp disk and pagefile not configured on C:'
     } else {
-        Write-Log "Configuration needed: Current state does not match optimal configuration"
+        Write-Log 'Configuration needed: Current state does not match optimal configuration'
     }
 }
 
 if ($everythingPerfect) {
-    Write-Log "Pagefile configuration is already optimal. Ensuring services are running."
+    Write-Log 'Pagefile configuration is already optimal. Ensuring services are running.'
 
     foreach ($svc in $AvdServices) {
         try {
             $service = Get-Service $svc -ErrorAction SilentlyContinue
-            if ($service -and $service.Status -ne "Running") {
+            if ($service -and $service.Status -ne 'Running') {
                 Start-Service $svc -ErrorAction Stop
                 Write-Log "Started service $svc"
             } else {
@@ -202,7 +201,7 @@ if ($everythingPerfect) {
     # Cleanup any stale registry markers
     Remove-ItemProperty -Path $RegPath -Name Marker, RebootCount, ConfiguredDrive, IntendedPageFile -ErrorAction SilentlyContinue
 
-    Write-Log "=== Setup Complete === AVD Session Host ready for connections"
+    Write-Log '=== Setup Complete === AVD Session Host ready for connections'
     exit 0
 }
 
@@ -210,12 +209,12 @@ if ($everythingPerfect) {
 # DETECT VM DEALLOCATION / DISK WIPE
 # =========================
 # If configured for D: but D: drive doesn't exist, temp disk was wiped
-if ($ConfiguredDrive -eq "D:" -and $Marker -eq 1) {
-    $dDriveAccessible = Test-Path "D:\" -ErrorAction SilentlyContinue
+if ($ConfiguredDrive -eq 'D:' -and $Marker -eq 1) {
+    $dDriveAccessible = Test-Path 'D:\' -ErrorAction SilentlyContinue
 
     if (-not $dDriveAccessible) {
-        Write-Log "D: drive was configured but is not accessible." -IsWarning
-        Write-Log "Temp disk likely wiped after VM deallocation. Resetting configuration."
+        Write-Log 'D: drive was configured but is not accessible.' -IsWarning
+        Write-Log 'Temp disk likely wiped after VM deallocation. Resetting configuration.'
 
         # Reset all markers to force reconfiguration
         Remove-ItemProperty -Path $RegPath -Name Marker, RebootCount, ConfiguredDrive, IntendedPageFile -ErrorAction SilentlyContinue
@@ -223,7 +222,7 @@ if ($ConfiguredDrive -eq "D:" -and $Marker -eq 1) {
         $RebootCount = 0
         $ConfiguredDrive = $null
 
-        Write-Log "Configuration reset. Will reinitialize temp disk and pagefile."
+        Write-Log 'Configuration reset. Will reinitialize temp disk and pagefile.'
     }
 }
 
@@ -231,8 +230,8 @@ if ($ConfiguredDrive -eq "D:" -and $Marker -eq 1) {
 # POST-REBOOT FINALIZATION CHECK
 # =========================
 if ($Marker -eq 1) {
-    $expectedDrive = if ($ConfiguredDrive) { $ConfiguredDrive } else { "C:" }
-    $pagefileActive = if ($expectedDrive -eq "D:") { $PagefileOnD } else { $PagefileOnC }
+    $expectedDrive = if ($ConfiguredDrive) { $ConfiguredDrive } else { 'C:' }
+    $pagefileActive = if ($expectedDrive -eq 'D:') { $PagefileOnD } else { $PagefileOnC }
 
     if ($pagefileActive) {
         Write-Log "Pagefile already active on $expectedDrive. Finalizing setup."
@@ -242,7 +241,7 @@ if ($Marker -eq 1) {
             try {
                 $service = Get-Service $svc -ErrorAction SilentlyContinue
                 if ($service) {
-                    if ($service.Status -ne "Running") {
+                    if ($service.Status -ne 'Running') {
                         Start-Service $svc -ErrorAction Stop
                         Write-Log "Started service $svc"
                     } else {
@@ -256,7 +255,7 @@ if ($Marker -eq 1) {
 
         # Cleanup registry
         Remove-ItemProperty -Path $RegPath -Name Marker, RebootCount, ConfiguredDrive, IntendedPageFile -ErrorAction SilentlyContinue
-        Write-Log "=== Setup Complete === AVD Session Host ready for connections"
+        Write-Log '=== Setup Complete === AVD Session Host ready for connections'
         exit 0
     } else {
         Write-Log "Marker set but pagefile not yet active on $expectedDrive. Continuing configuration."
@@ -266,17 +265,17 @@ if ($Marker -eq 1) {
 # =========================
 # TEMP DISK DETECTION & INIT
 # =========================
-$PagefileDrive = "C:"  # default fallback
+$PagefileDrive = 'C:'  # default fallback
 try {
     # Remove D: from CD-ROM if exists
-    $cdromD = Get-Volume -DriveLetter D -ErrorAction SilentlyContinue | Where-Object DriveType -EQ "CD-ROM"
+    $cdromD = Get-Volume -DriveLetter D -ErrorAction SilentlyContinue | Where-Object DriveType -EQ 'CD-ROM'
     if ($cdromD) {
-        Write-Log "CD-ROM detected on D:, removing drive letter"
+        Write-Log 'CD-ROM detected on D:, removing drive letter'
         try {
             $drive = Get-WmiObject -Class Win32_Volume -Filter "DriveLetter='D:'"
             $drive.DriveLetter = $null
             $drive.Put() | Out-Null
-            Write-Log "Removed D: from CD-ROM"
+            Write-Log 'Removed D: from CD-ROM'
             Start-Sleep -Seconds 2
         } catch {
             Write-Log "Failed to remove D: from CD-ROM: $_" -IsError
@@ -285,30 +284,30 @@ try {
 
     # Check if temp disk is already initialized and formatted
     $DVolume = Get-Volume -DriveLetter D -ErrorAction SilentlyContinue | Where-Object {
-        $_.FileSystemType -eq "NTFS" -and
-        ($_.FileSystemLabel -eq "TempDisk" -or $_.FileSystemLabel -eq "Temporary Storage")
+        $_.FileSystemType -eq 'NTFS' -and
+        ($_.FileSystemLabel -eq 'TempDisk' -or $_.FileSystemLabel -eq 'Temporary Storage')
     }
 
 
     if ($DVolume) {
-        Write-Log "Temp disk D: already initialized and formatted"
-        $PagefileDrive = "D:"
+        Write-Log 'Temp disk D: already initialized and formatted'
+        $PagefileDrive = 'D:'
     } else {
         # Find RAW NVMe temp disk
         $TempDisk = Get-Disk | Where-Object {
-            $_.OperationalStatus -eq "Online" -and
-            $_.BusType -ne "File" -and
+            $_.OperationalStatus -eq 'Online' -and
+            $_.BusType -ne 'File' -and
             (
-                $_.FriendlyName -eq "Microsoft NVMe Direct Disk v2" -or # V6 SKU
-                ($_.FriendlyName -eq "Msft Virtual Disk" -and $_.PartitionStyle -eq "MBR")  # V5 SKU
+                $_.FriendlyName -eq 'Microsoft NVMe Direct Disk v2' -or # V6 SKU
+                ($_.FriendlyName -eq 'Msft Virtual Disk' -and $_.PartitionStyle -eq 'MBR')  # V5 SKU
             )
         }
 
         if ($TempDisk) {
             Write-Log "Found temp disk: Disk $($TempDisk.Number)"
 
-            if ($TempDisk.PartitionStyle -eq "RAW") {
-                Write-Log "Initializing temp disk as GPT"
+            if ($TempDisk.PartitionStyle -eq 'RAW') {
+                Write-Log 'Initializing temp disk as GPT'
                 Initialize-Disk -Number $TempDisk.Number -PartitionStyle GPT -ErrorAction Stop | Out-Null
             }
 
@@ -317,27 +316,27 @@ try {
             Where-Object { $_.DriveLetter -eq 'D' }
 
             if (-not $existingPartition) {
-                Write-Log "Creating partition and formatting as D:"
+                Write-Log 'Creating partition and formatting as D:'
                 New-Partition -DiskNumber $TempDisk.Number -UseMaximumSize -DriveLetter D -ErrorAction Stop | Out-Null
                 Format-Volume -DriveLetter D -FileSystem NTFS -NewFileSystemLabel TempDisk -Confirm:$false -ErrorAction Stop | Out-Null
-                Write-Log "Temp disk initialized and formatted as D:"
+                Write-Log 'Temp disk initialized and formatted as D:'
             }
 
             # Verify D: is accessible
-            if (Test-Path "D:\") {
-                $PagefileDrive = "D:"
-                Write-Log "D: drive verified and accessible"
+            if (Test-Path 'D:\') {
+                $PagefileDrive = 'D:'
+                Write-Log 'D: drive verified and accessible'
             } else {
-                throw "D: drive not accessible after configuration"
+                throw 'D: drive not accessible after configuration'
             }
 
             # Harden permissions on temp disk to prevent access from non-admin users (optional but recommended for security)
             try {
-                Write-Log "Starting permission hardening on D:\ drive"
-                $drivePath = "D:\"
+                Write-Log 'Starting permission hardening on D:\ drive'
+                $drivePath = 'D:\'
 
                 # Disable inheritance and remove all existing permissions
-                $icaclsResult = icacls $drivePath /inheritance:d /remove:g "*S-1-1-0" 2>&1
+                $icaclsResult = icacls $drivePath /inheritance:d /remove:g '*S-1-1-0' 2>&1
                 if ($LASTEXITCODE -ne 0) {
                     Write-Log "ICACLS inheritance disable: $icaclsResult" -IsWarning
                 } else {
@@ -345,7 +344,7 @@ try {
                 }
 
                 # Remove existing permissions for Users
-                $icaclsResult = icacls $drivePath /remove:g "Users" 2>&1
+                $icaclsResult = icacls $drivePath /remove:g 'Users' 2>&1
                 if ($LASTEXITCODE -ne 0) {
                     Write-Log "ICACLS remove Users: $icaclsResult" -IsWarning
                 } else {
@@ -353,7 +352,7 @@ try {
                 }
 
                 # Remove existing permissions for Authenticated Users
-                $icaclsResult = icacls $drivePath /remove:g "Authenticated Users" 2>&1
+                $icaclsResult = icacls $drivePath /remove:g 'Authenticated Users' 2>&1
                 if ($LASTEXITCODE -ne 0) {
                     Write-Log "ICACLS remove Authenticated Users: $icaclsResult" -IsWarning
                 } else {
@@ -379,7 +378,7 @@ try {
                     }
                 }
 
-                Write-Log "Permission hardening completed. D: drive is now secured - only Administrators and System have access."
+                Write-Log 'Permission hardening completed. D: drive is now secured - only Administrators and System have access.'
 
             } catch {
                 Write-Log "Failed to harden permissions on D:\: $_" -IsWarning
@@ -387,12 +386,12 @@ try {
             }
 
         } else {
-            Write-Log "No temp disk detected. Using fallback pagefile on C:"
+            Write-Log 'No temp disk detected. Using fallback pagefile on C:'
         }
     }
 } catch {
     Write-Log "Temp disk initialization failed: $_" -IsError
-    $PagefileDrive = "C:"
+    $PagefileDrive = 'C:'
 }
 
 # =========================
@@ -405,9 +404,9 @@ $needsReboot = $false
 $targetDriveExists = Test-Path "${PagefileDrive}\"
 Write-Log "Target drive ${PagefileDrive} exists: $targetDriveExists"
 
-if ($PagefileDrive -eq "D:") {
+if ($PagefileDrive -eq 'D:') {
     # For D: drive, verify pagefile is configured AND the drive exists AND pagefile file exists
-    $pagefileFileExists = Test-Path "D:\pagefile.sys" -ErrorAction SilentlyContinue
+    $pagefileFileExists = Test-Path 'D:\pagefile.sys' -ErrorAction SilentlyContinue
     Write-Log "Pagefile file on D: exists: $pagefileFileExists"
 
     if ($PagefileOnD -and $targetDriveExists -and $pagefileFileExists) {
@@ -424,8 +423,8 @@ if ($PagefileDrive -eq "D:") {
     $needsConfiguration = -not $PagefileOnC
 
     # If we're switching FROM D: TO C: (fallback scenario because D: disappeared), we need a reboot
-    if ($ConfiguredDrive -eq "D:") {
-        Write-Log "Detected switch from D: to C: drive (D: no longer available, falling back)"
+    if ($ConfiguredDrive -eq 'D:') {
+        Write-Log 'Detected switch from D: to C: drive (D: no longer available, falling back)'
         $needsConfiguration = $true
         $needsReboot = $true
     } else {
@@ -443,7 +442,7 @@ if (-not $needsConfiguration) {
     foreach ($svc in $AvdServices) {
         try {
             $service = Get-Service $svc -ErrorAction SilentlyContinue
-            if ($service -and $service.Status -ne "Running") {
+            if ($service -and $service.Status -ne 'Running') {
                 Start-Service $svc -ErrorAction Stop
                 Write-Log "Started service $svc"
             }
@@ -453,7 +452,7 @@ if (-not $needsConfiguration) {
     }
 
     Remove-ItemProperty -Path $RegPath -Name Marker, RebootCount, ConfiguredDrive, IntendedPageFile -ErrorAction SilentlyContinue
-    Write-Log "=== Setup Complete === AVD Session Host ready"
+    Write-Log '=== Setup Complete === AVD Session Host ready'
     exit 0
 }
 
@@ -488,19 +487,19 @@ try {
         Write-Log "Setting fixed pagefile on $PagefileDrive (${FixedInitialSizeMB}MB initial, ${FixedMaxSizeMB}MB max)"
     }
 
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
-        -Name "PagingFiles" -Value $pfValue -Type MultiString -Force -ErrorAction Stop
+    Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management' `
+        -Name 'PagingFiles' -Value $pfValue -Type MultiString -Force -ErrorAction Stop
 
     # Set marker and configured drive
-    Set-ItemProperty -Path $RegPath -Name Marker -Value 1 -Force
-    Set-ItemProperty -Path $RegPath -Name ConfiguredDrive -Value $PagefileDrive -Force
+    Set-ItemProperty -Path $RegPath -Name 'Marker' -Value 1 -Force
+    Set-ItemProperty -Path $RegPath -Name 'ConfiguredDrive' -Value $PagefileDrive -Force
 
-    Write-Log "Pagefile registry updated successfully"
+    Write-Log 'Pagefile registry updated successfully'
 
     # Increment reboot counter only when actually rebooting
     if ($needsReboot) {
         $RebootCount++
-        Set-ItemProperty -Path $RegPath -Name RebootCount -Value $RebootCount -Force
+        Set-ItemProperty -Path $RegPath -Name 'RebootCount' -Value $RebootCount -Force
         Write-Log "Reboot attempt #$RebootCount of $MaxRebootAttempts"
 
         Write-Log "Initiating system reboot to activate pagefile on $PagefileDrive"
@@ -516,7 +515,7 @@ try {
         foreach ($svc in $AvdServices) {
             try {
                 $service = Get-Service $svc -ErrorAction SilentlyContinue
-                if ($service -and $service.Status -ne "Running") {
+                if ($service -and $service.Status -ne 'Running') {
                     Start-Service $svc -ErrorAction Stop
                     Write-Log "Started service $svc"
                 }
@@ -525,8 +524,8 @@ try {
             }
         }
 
-        Remove-ItemProperty -Path $RegPath -Name Marker, RebootCount, ConfiguredDrive, IntendedPageFile -ErrorAction SilentlyContinue
-        Write-Log "=== Setup Complete === AVD Session Host ready"
+        Remove-ItemProperty -Path $RegPath -Name 'Marker', 'RebootCount', 'ConfiguredDrive', 'IntendedPageFile' -ErrorAction SilentlyContinue
+        Write-Log '=== Setup Complete === AVD Session Host ready'
         exit 0
     }
 } catch {
